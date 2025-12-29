@@ -7,9 +7,20 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// --- NEW: Route to fetch saved context ---
+router.get("/context", async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.email });
+    res.json({ persona: user?.persona || "" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch context" });
+  }
+});
+
+// --- Existing POST route ---
 router.post("/", async (req, res) => {
   try {
-    // 1. Accept either text (ingredients) or a base64 image (image_url)
     const { ingredients, image_url, userProfile } = req.body;
 
     if (!ingredients && !image_url) {
@@ -21,6 +32,7 @@ router.post("/", async (req, res) => {
       user = await User.create({ email: req.email, persona: userProfile || "" });
     }
 
+    // Update the persona if the user sent a new one
     if (userProfile) {
       user.persona = userProfile;
       await user.save();
@@ -28,7 +40,7 @@ router.post("/", async (req, res) => {
 
     const persona = user.persona || "a consumer looking for healthy choices";
 
-    // 2. Build the multimodal message content
+    // Build the multimodal message
     const content = [
       {
         type: "text",
@@ -48,11 +60,10 @@ router.post("/", async (req, res) => {
       }
     ];
 
-    // 3. If an image is provided, add it to the request
     if (image_url) {
       content.push({
         type: "image_url",
-        image_url: { url: image_url } // expects a base64 string or public URL
+        image_url: { url: image_url } 
       });
     } else {
       content.push({
@@ -62,7 +73,7 @@ router.post("/", async (req, res) => {
     }
 
     const response = await client.chat.completions.create({
-      model: "gpt-4o-mini", // Use a vision-capable model
+      model: "gpt-4o-mini", 
       messages: [{ role: "user", content: content }],
       response_format: { type: "json_object" }
     });

@@ -40,6 +40,30 @@ export default function Judge() {
   const navigate = useNavigate();
   const resultRef = useRef(null);
 
+  // --- NEW: Fetch User Context on Load ---
+  useEffect(() => {
+    const fetchContext = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        // We ask the backend: "Do you have any health context for this user?"
+        const res = await api.get("/judge/context", { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
+        
+        if (res.data.persona) {
+          setPersona(res.data.persona);
+          // Optional: We can auto-open the panel so they see it
+          // setShowPersona(true); 
+        }
+      } catch (err) {
+        console.error("Context sync failed", err);
+      }
+    };
+    fetchContext();
+  }, []);
+
   useEffect(() => {
     if (!loading) return;
     const steps = [
@@ -176,7 +200,12 @@ export default function Judge() {
                   className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${showPersona ? 'bg-indigo-500/20 text-indigo-300' : 'text-neutral-500 hover:text-white'}`}
                 >
                   <UserCircle size={14} />
-                  {showPersona ? "Context Active" : "Add Context"}
+                  {/* --- NEW: Visual indicator if context exists --- */}
+                  {persona ? (
+                    <span className="text-indigo-300 font-bold">Context Active</span>
+                  ) : (
+                    showPersona ? "Close Context" : "Add Context"
+                  )}
                 </button>
 
                 {/* Hidden File Input */}
