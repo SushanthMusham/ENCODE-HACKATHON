@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ScanSearch, UserCircle, ShieldAlert, Sparkles, Activity, 
-  Search, BrainCircuit, AlertTriangle, LogOut, Camera, X 
+  Search, BrainCircuit, AlertTriangle, LogOut, Camera, X, MessageSquare 
 } from "lucide-react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
@@ -36,26 +36,28 @@ export default function Judge() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [base64Image, setBase64Image] = useState(null);
   const fileInputRef = useRef(null);
+
+  // --- NEW: Chat States ---
+  const [chatInput, setChatInput] = useState("");
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
   
   const navigate = useNavigate();
   const resultRef = useRef(null);
 
-  // --- NEW: Fetch User Context on Load ---
+  // Fetch User Context on Load
   useEffect(() => {
     const fetchContext = async () => {
       const token = localStorage.getItem("token");
       if (!token) return;
 
       try {
-        // We ask the backend: "Do you have any health context for this user?"
         const res = await api.get("/judge/context", { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         
         if (res.data.persona) {
           setPersona(res.data.persona);
-          // Optional: We can auto-open the panel so they see it
-          // setShowPersona(true); 
         }
       } catch (err) {
         console.error("Context sync failed", err);
@@ -81,7 +83,6 @@ export default function Judge() {
     return () => clearInterval(interval);
   }, [loading]);
 
-  // Handle Image Selection and Base64 conversion
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -104,6 +105,7 @@ export default function Judge() {
     if (!ingredients.trim() && !base64Image) return;
     setLoading(true);
     setResult(null);
+    setChatHistory([]); // Reset chat when analyzing new product
     
     if (window.innerWidth < 1024) {
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -116,7 +118,7 @@ export default function Judge() {
       const res = await api.post("/judge", 
         { 
           ingredients, 
-          image_url: base64Image, // Sending the base64 string
+          image_url: base64Image, 
           userProfile: persona 
         }, 
         { headers: { Authorization: `Bearer ${token}` } }
@@ -130,6 +132,37 @@ export default function Judge() {
       console.error(err);
       setLoading(false);
       alert("System Error. Please retry.");
+    }
+  };
+
+  // --- NEW: Handle Chat Submission ---
+  const handleChatSubmit = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMessage = chatInput;
+    setChatInput(""); 
+    
+    // Optimistically add user message
+    const newHistory = [...chatHistory, { role: "user", content: userMessage }];
+    setChatHistory(newHistory);
+    setChatLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await api.post("/judge/chat", {
+        message: userMessage,
+        context: result.detailed_reason + " " + result.short_reason, 
+        userProfile: persona,
+        history: newHistory
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      setChatHistory([...newHistory, { role: "assistant", content: res.data.reply }]);
+    } catch (err) {
+      console.error(err);
+      // Optional: Add an error message to chat
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -173,7 +206,6 @@ export default function Judge() {
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-1 shadow-2xl transition-all focus-within:border-indigo-500/50 focus-within:bg-white/10">
-            {/* Image Preview Area */}
             {selectedImage && (
               <div className="relative p-4 border-b border-white/5">
                 <img src={selectedImage} alt="Scan preview" className="h-32 w-full object-cover rounded-xl opacity-80" />
@@ -200,7 +232,6 @@ export default function Judge() {
                   className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${showPersona ? 'bg-indigo-500/20 text-indigo-300' : 'text-neutral-500 hover:text-white'}`}
                 >
                   <UserCircle size={14} />
-                  {/* --- NEW: Visual indicator if context exists --- */}
                   {persona ? (
                     <span className="text-indigo-300 font-bold">Context Active</span>
                   ) : (
@@ -208,7 +239,6 @@ export default function Judge() {
                   )}
                 </button>
 
-                {/* Hidden File Input */}
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -217,7 +247,6 @@ export default function Judge() {
                   accept="image/*"
                 />
                 
-                {/* Image Upload Trigger */}
                 <button 
                   onClick={() => fileInputRef.current.click()}
                   className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${selectedImage ? 'bg-emerald-500/20 text-emerald-300' : 'text-neutral-500 hover:text-white'}`}
@@ -289,6 +318,8 @@ export default function Judge() {
           {result && !loading && (
             <div className="flex-1 overflow-y-auto p-6 lg:p-12 scrollbar-hide">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                
+                {/* Result Header */}
                 <div className="flex flex-col md:flex-row md:items-start justify-between border-b border-white/10 pb-6 gap-4">
                   <div>
                     <span className="text-[10px] font-mono uppercase text-neutral-500 mb-2 block">Analysis Result</span>
@@ -302,6 +333,7 @@ export default function Judge() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-8">
+                  {/* Summary */}
                   <div className="space-y-3">
                     <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest flex items-center gap-2">
                       <ScanSearch size={14} /> Summary
@@ -311,6 +343,7 @@ export default function Judge() {
                     </p>
                   </div>
 
+                  {/* Deep Dive & Flags */}
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div className="bg-white/5 rounded-2xl p-5 lg:p-6 border border-white/5 transition-all duration-300 hover:scale-[1.02] hover:bg-white/10 hover:border-indigo-500/50 group cursor-default">
                       <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-4">Detailed Logic</h3>
@@ -348,6 +381,80 @@ export default function Judge() {
                     </div>
                   </div>
                 </div>
+
+                {/* --- NEW: FOLLOW-UP CHAT SECTION --- */}
+                <div className="mt-8 pt-8 border-t border-white/10">
+                  <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <MessageSquare size={14} className="text-indigo-400" /> AI Co-Pilot Chat
+                  </h3>
+
+                  <div className="bg-white/5 rounded-2xl border border-white/5 p-4 lg:p-6 space-y-4">
+                    
+                    {/* Chat History Area */}
+                    {chatHistory.length > 0 ? (
+                      <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 pr-2">
+                        {chatHistory.map((msg, idx) => (
+                          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                              msg.role === 'user' 
+                                ? 'bg-indigo-600 text-white rounded-br-none' 
+                                : 'bg-neutral-800 text-neutral-200 rounded-bl-none'
+                            }`}>
+                              {msg.content}
+                            </div>
+                          </div>
+                        ))}
+                        {chatLoading && (
+                          <div className="flex justify-start">
+                            <div className="bg-neutral-800 rounded-2xl rounded-bl-none px-4 py-3">
+                              <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce" />
+                                <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce delay-75" />
+                                <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce delay-150" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Empty State Suggestions */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                        <button 
+                          onClick={() => setChatInput("Is there a healthier alternative to this?")}
+                          className="text-left text-xs text-neutral-400 hover:text-indigo-300 bg-black/20 hover:bg-indigo-900/20 p-3 rounded-xl border border-white/5 transition-colors"
+                        >
+                          "Is there a healthier alternative?"
+                        </button>
+                        <button 
+                          onClick={() => setChatInput("Can I eat this if I have health concerns?")}
+                          className="text-left text-xs text-neutral-400 hover:text-indigo-300 bg-black/20 hover:bg-indigo-900/20 p-3 rounded-xl border border-white/5 transition-colors"
+                        >
+                          "Can I eat this if I have health concerns?"
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Input Area */}
+                    <form onSubmit={handleChatSubmit} className="relative">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Ask a follow-up question..."
+                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-neutral-600"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={!chatInput.trim() || chatLoading}
+                        className="absolute right-2 top-2 p-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Search size={16} />
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                {/* --- END CHAT SECTION --- */}
+
               </motion.div>
             </div>
           )}
