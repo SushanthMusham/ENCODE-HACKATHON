@@ -160,7 +160,6 @@ export default function Judge() {
       setChatHistory([...newHistory, { role: "assistant", content: res.data.reply }]);
     } catch (err) {
       console.error(err);
-      // Optional: Add an error message to chat
     } finally {
       setChatLoading(false);
     }
@@ -288,7 +287,8 @@ export default function Judge() {
       </div>
 
       {/* --- RIGHT PANEL: THE MONITOR --- */}
-      <div ref={resultRef} className="w-full lg:w-[60%] flex-grow lg:h-full p-4 lg:p-6 bg-[#020202] relative z-10">
+      {/* Updated Wrapper: lg:h-screen, overflow-hidden, flex-col */}
+      <div ref={resultRef} className="w-full lg:w-[60%] lg:h-screen overflow-hidden p-4 lg:p-6 bg-[#020202] relative z-10 flex flex-col">
         <div className="w-full h-full min-h-[500px] bg-neutral-900/30 border border-white/10 rounded-3xl overflow-hidden relative flex flex-col shadow-2xl backdrop-blur-md">
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
@@ -316,7 +316,8 @@ export default function Judge() {
           )}
 
           {result && !loading && (
-            <div className="flex-1 overflow-y-auto p-6 lg:p-12 scrollbar-hide">
+            // Updated Scroll Container: pb-40 adds huge bottom padding for chat accessibility
+            <div className="flex-1 overflow-y-auto p-6 lg:p-12 pb-40 scrollbar-hide relative z-20">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                 
                 {/* Result Header */}
@@ -382,7 +383,7 @@ export default function Judge() {
                   </div>
                 </div>
 
-                {/* --- NEW: FOLLOW-UP CHAT SECTION --- */}
+                {/* --- FOLLOW-UP CHAT SECTION --- */}
                 <div className="mt-8 pt-8 border-t border-white/10">
                   <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                     <MessageSquare size={14} className="text-indigo-400" /> AI Co-Pilot Chat
