@@ -192,7 +192,7 @@ export default function Judge() {
             {loading ? (
               <> <Sparkles className="animate-spin" size={18} /> Processing... </>
             ) : (
-              <> Initialize Scan <Search size={18} className="group-hover:translate-x-1 transition-transform" /> </>
+              <> Analyze Ingredients <Search size={18} className="group-hover:translate-x-1 transition-transform" /> </>
             )}
           </button>
         </div>
