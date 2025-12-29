@@ -86,4 +86,45 @@ router.post("/", async (req, res) => {
   }
 });
 
+
+// --- NEW: Follow-up Chat Route ---
+router.post("/chat", async (req, res) => {
+  try {
+    const { message, context, userProfile, history } = req.body;
+
+    // 1. Build the conversation history
+    const messages = [
+      {
+        role: "system",
+        content: `You are an AI Nutrition Co-pilot. 
+        
+        CONTEXT OF CURRENT PRODUCT:
+        "${context}"
+        
+        USER HEALTH PROFILE:
+        "${userProfile}"
+        
+        Your Goal: Answer the user's follow-up questions about this product. 
+        - Be brief and conversational.
+        - If they ask for alternatives, suggest specific healthy swaps.
+        - If they ask "Why?", explain the science simply.
+        - Keep answers under 3 sentences unless asked for more detail.`
+      },
+      ...history, // Previous chat messages
+      { role: "user", content: message }
+    ];
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages,
+    });
+
+    res.json({ reply: response.choices[0].message.content });
+
+  } catch (error) {
+    console.error("Chat error:", error);
+    res.status(500).json({ error: "Chat failed" });
+  }
+});
+
 module.exports = router;
