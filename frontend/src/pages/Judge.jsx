@@ -135,7 +135,7 @@ export default function Judge() {
     }
   };
 
-  // --- NEW: Handle Chat Submission ---
+  // --- Handle Chat Submission ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -287,7 +287,6 @@ export default function Judge() {
       </div>
 
       {/* --- RIGHT PANEL: THE MONITOR --- */}
-      {/* Updated Wrapper: lg:h-screen, overflow-hidden, flex-col */}
       <div ref={resultRef} className="w-full lg:w-[60%] lg:h-screen overflow-hidden p-4 lg:p-6 bg-[#020202] relative z-10 flex flex-col">
         <div className="w-full h-full min-h-[500px] bg-neutral-900/30 border border-white/10 rounded-3xl overflow-hidden relative flex flex-col shadow-2xl backdrop-blur-md">
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
@@ -316,7 +315,6 @@ export default function Judge() {
           )}
 
           {result && !loading && (
-            // Updated Scroll Container: pb-40 adds huge bottom padding for chat accessibility
             <div className="flex-1 overflow-y-auto p-6 lg:p-12 pb-40 scrollbar-hide relative z-20">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                 
@@ -344,8 +342,9 @@ export default function Judge() {
                     </p>
                   </div>
 
-                  {/* Deep Dive & Flags */}
+                  {/* Deep Dive & Flags Grid */}
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Column 1: Detailed Logic */}
                     <div className="bg-white/5 rounded-2xl p-5 lg:p-6 border border-white/5 transition-all duration-300 hover:scale-[1.02] hover:bg-white/10 hover:border-indigo-500/50 group cursor-default">
                       <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-4">Detailed Logic</h3>
                       <div className="text-sm text-neutral-400 leading-relaxed space-y-2">
@@ -353,7 +352,39 @@ export default function Judge() {
                       </div>
                     </div>
 
+                    {/* Column 2: Stacked Cards (Smart Swap + Flags + Confidence) */}
                     <div className="space-y-6">
+                      
+                      {/* --- NEW: SMART SWAP CARD --- */}
+                      {result.better_alternative && result.ui_theme !== "green" && (
+                        <div className="bg-emerald-900/20 rounded-2xl p-5 lg:p-6 border border-emerald-500/20 relative overflow-hidden group transition-all duration-300 hover:scale-[1.02]">
+                          {/* Background Glow */}
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                          
+                          <h3 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2 relative z-10">
+                            <Sparkles size={14} /> Smart Swap
+                          </h3>
+                          
+                          <div className="relative z-10">
+                            <div className="text-lg font-medium text-white mb-1">
+                              {result.better_alternative.name}
+                            </div>
+                            <p className="text-xs text-emerald-200/70 leading-relaxed">
+                              {result.better_alternative.why}
+                            </p>
+                          </div>
+
+                          {/* "Ask AI" Shortcut Button */}
+                          <button 
+                            onClick={() => setChatInput(`Why is ${result.better_alternative.name} better?`)}
+                            className="mt-4 text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 px-3 py-2 rounded-lg transition-colors border border-emerald-500/20 cursor-pointer"
+                          >
+                            ASK WHY →
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Flagged Agents */}
                       <div className={`rounded-2xl p-5 lg:p-6 border transition-all duration-300 hover:scale-[1.02] ${
                           result.highlighted_ingredients?.length > 0 ? 'bg-rose-950/30 border-rose-500/20' : 'bg-white/5 border-white/5'
                         }`}>
@@ -372,6 +403,7 @@ export default function Judge() {
                         </div>
                       </div>
 
+                      {/* Confidence Score */}
                       <div className="bg-indigo-900/20 rounded-2xl p-5 lg:p-6 border border-indigo-500/20 flex gap-4 items-start transition-all duration-300 hover:scale-[1.02]">
                         <ShieldAlert className="text-indigo-400 shrink-0" size={18} />
                         <div className="text-xs text-indigo-200/80 leading-relaxed">
