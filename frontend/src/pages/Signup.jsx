@@ -20,7 +20,7 @@ export default function Signup() {
       const res = await api.post("/auth/signup", { email, password });
       localStorage.setItem("token", res.data.token);
       
-      setMsg("Identity Verified. Initializing Workspace...");
+      setMsg("Account created successfully. Redirecting...");
       
       setTimeout(() => {
         navigate("/judge");
@@ -28,7 +28,7 @@ export default function Signup() {
 
     } catch (err) {
       setIsLoading(false);
-      setMsg(err.response?.data?.error || "Unable to verify credentials.");
+      setMsg(err.response?.data?.error || "Unable to create account. Please try again.");
     }
   };
 
@@ -72,10 +72,10 @@ export default function Signup() {
             </div>
             
             <h1 className="text-3xl font-light tracking-tight text-white">
-              Initialize <span className="font-semibold text-indigo-500">Identity</span>
+              Create <span className="font-semibold text-indigo-500">Account</span>
             </h1>
             <p className="text-sm text-neutral-500 mt-2">
-              Create a secure profile to access the reasoning engine.
+              Register for secure access to the reasoning engine.
             </p>
           </div>
 
@@ -84,7 +84,7 @@ export default function Signup() {
             {/* Email Input */}
             <div className="group space-y-2">
               <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 group-focus-within:text-indigo-400 transition-colors">
-                Analyst ID (Email)
+                Email
               </label>
               <input 
                 type="email"
@@ -98,7 +98,7 @@ export default function Signup() {
             {/* Password Input */}
             <div className="group space-y-2">
                <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 group-focus-within:text-indigo-400 transition-colors">
-                Secure Token (Password)
+                Password
               </label>
               <input 
                 type="password"
@@ -111,7 +111,7 @@ export default function Signup() {
 
             {/* Status Message */}
             <div className={`overflow-hidden transition-all duration-300 ${msg ? "h-6 opacity-100" : "h-0 opacity-0"}`}>
-              <div className={`text-xs text-center font-mono ${msg.includes("Verified") ? "text-emerald-400" : "text-rose-400"}`}>
+              <div className={`text-xs text-center font-mono ${msg.includes("successfully") ? "text-emerald-400" : "text-rose-400"}`}>
                 {">"} {msg}
               </div>
             </div>
@@ -124,11 +124,11 @@ export default function Signup() {
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <Activity className="animate-spin" size={18} /> Establishing Link...
+                  <Activity className="animate-spin" size={18} /> Creating Account...
                 </span>
               ) : (
                 <>
-                  Access Engine <ArrowRight size={18} />
+                  Sign Up <ArrowRight size={18} />
                 </>
               )}
             </button>
@@ -140,7 +140,7 @@ export default function Signup() {
               onClick={() => navigate("/login")}
               className="text-xs text-neutral-500 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
             >
-              Already registered? <span className="underline decoration-indigo-500/50 underline-offset-4">Resume Session</span>
+              Already have an account? <span className="underline decoration-indigo-500/50 underline-offset-4">Log In</span>
             </button>
           </div>
 

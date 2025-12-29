@@ -1,8 +1,8 @@
 import { useState } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion"; // Make sure to install framer-motion if not already used here
-import { Lock, Activity, ArrowRight } from "lucide-react"; // Consistent icons
+import { motion } from "framer-motion"; 
+import { Lock, Activity, ArrowRight } from "lucide-react"; 
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -24,7 +24,7 @@ export default function Login() {
 
       localStorage.setItem("token", res.data.token);
 
-      setMsg("Identity Confirmed. Initializing Workspace...");
+      setMsg("Login successful. Redirecting..."); // Simplified message
       
       setTimeout(() => {
         navigate("/judge");
@@ -32,7 +32,8 @@ export default function Login() {
 
     } catch (err) {
       setIsLoading(false);
-      setMsg(err.response?.data?.error || "Access Denied: Invalid Credentials");
+      // Simplified error message
+      setMsg(err.response?.data?.error || "Invalid email or password");
     }
   };
 
@@ -40,7 +41,7 @@ export default function Login() {
     // 1. Background: Matches the Judge Dashboard (#050505)
     <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-indigo-500/30">
       
-      {/* 2. Alive Background (Same as Judge.jsx) */}
+      {/* 2. Alive Background */}
       <div className="fixed inset-0 pointer-events-none">
         <motion.div 
           animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
@@ -75,7 +76,7 @@ export default function Login() {
             </div>
             
             <h1 className="text-3xl font-light tracking-tight text-white">
-              Resume <span className="font-semibold text-indigo-500">Session</span>
+              Log <span className="font-semibold text-indigo-500">In</span>
             </h1>
           </div>
 
@@ -84,7 +85,7 @@ export default function Login() {
             {/* Email Input */}
             <div className="group space-y-2">
               <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 group-focus-within:text-indigo-400 transition-colors">
-                Identity Protocol (Email)
+                Email
               </label>
               <input 
                 value={email}
@@ -97,7 +98,7 @@ export default function Login() {
             {/* Password Input */}
             <div className="group space-y-2">
                <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 group-focus-within:text-indigo-400 transition-colors">
-                Security Token (Password)
+                Password
               </label>
               <input 
                 type="password"
@@ -110,7 +111,7 @@ export default function Login() {
 
             {/* Status Message */}
             <div className={`overflow-hidden transition-all duration-300 ${msg ? "h-6 opacity-100" : "h-0 opacity-0"}`}>
-              <div className={`text-xs text-center font-mono ${msg.includes("Confirmed") ? "text-emerald-400" : "text-rose-400"}`}>
+              <div className={`text-xs text-center font-mono ${msg.includes("successful") ? "text-emerald-400" : "text-rose-400"}`}>
                 {">"} {msg}
               </div>
             </div>
@@ -123,11 +124,11 @@ export default function Login() {
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <Activity className="animate-spin" size={18} /> Verifying...
+                  <Activity className="animate-spin" size={18} /> Logging in...
                 </span>
               ) : (
                 <>
-                  Unlock Workspace <ArrowRight size={18} />
+                  Log In <ArrowRight size={18} />
                 </>
               )}
             </button>
@@ -139,7 +140,7 @@ export default function Login() {
               onClick={() => navigate("/")}
               className="text-xs text-neutral-500 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
             >
-              No credentials? <span className="underline decoration-indigo-500/50 underline-offset-4">Initialize New Identity</span>
+              Need an account? <span className="underline decoration-indigo-500/50 underline-offset-4">Sign Up</span>
             </button>
           </div>
 
