@@ -79,30 +79,31 @@ The system provides structured JSON responses to drive the immersive UI:
 ```
 
 📦 Installation
----
+
 Backend
+
+Navigate to the backend directory and install dependencies:
 
 cd backend
 npm install
 touch .env
----
-Add the following to your .env:
----
+
+
+Add the following to your .env file:
 
 MONGO_URI=your_mongodb_uri
 JWT_SECRET=your_secret_key
 OPENAI_KEY=your_openai_api_key
 
----
 npm run dev
----
+
 Frontend
 
-Bash
+
 cd frontend
 npm install
 npm run dev
----
+
 
 🔗 Live Demo
 website : https://encode-hackathon-ivory.vercel.app
