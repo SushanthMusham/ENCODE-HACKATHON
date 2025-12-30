@@ -76,6 +76,7 @@ The system provides structured JSON responses to drive the immersive UI:
   "highlighted_ingredients": ["sugar", "corn syrup", "whey protein"],
   "uncertainty_note": "Limited data about user health"
 }
+```
 
 📦 Installation
 
