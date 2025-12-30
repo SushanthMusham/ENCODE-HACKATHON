@@ -2,6 +2,9 @@ const express = require("express");
 const User = require("../models/User");
 const router = express.Router();
 const axios = require("axios");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 
 // ---------------- CONTEXT ROUTE ----------------
@@ -10,21 +13,18 @@ router.get("/context", async (req, res) => {
     const user = await User.findOne({ email: req.email });
     res.json({ persona: user?.persona || "" });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: "Failed to fetch context" });
   }
 });
 
 
-// ---------------- MAIN ANALYSIS ROUTE ----------------
+// ---------------- MAIN ANALYSIS ----------------
 router.post("/", async (req, res) => {
   try {
     const { ingredients, image_url, userProfile } = req.body;
 
     if (!ingredients && !image_url) {
-      return res.status(400).json({
-        msg: "Provide either ingredients text or image"
-      });
+      return res.status(400).json({ msg: "Ingredients or image required" });
     }
 
     let user = await User.findOne({ email: req.email });
@@ -36,25 +36,35 @@ router.post("/", async (req, res) => {
       await user.save();
     }
 
-    const persona = user.persona || "a consumer who cares about healthy eating";
+    const persona = user.persona || "a consumer who cares about healthy choices";
 
-    const payload = {
-      model: "deepseek-vl-1.5",
-      messages: [
-        {
-          role: "system",
-          content: "You are a nutrition AI. ALWAYS return ONLY raw JSON. No markdown."
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `User persona: ${persona}
+    // Convert image to base64 if provided
+    let imagePart = null;
+    if (image_url) {
+      const img = await axios.get(image_url, { responseType: "arraybuffer" });
+      imagePart = {
+        inlineData: {
+          data: Buffer.from(img.data).toString("base64"),
+          mimeType: "image/png"
+        }
+      };
+    }
 
-Analyze the food / product using the image and/or ingredient list.
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      safetySettings: [] // avoids random blocking
+    });
 
-Return ONLY JSON in EXACT format:
+    const prompt = `
+You are an AI Nutrition Co-pilot.
+User persona: ${persona}
+
+Analyze using image and/or ingredients below.
+If anything unclear, state uncertainty.
+
+Ingredients: ${ingredients || "Not provided"}
+
+Return ONLY valid JSON EXACTLY like:
 {
   "verdict": "SAFE" | "CAUTION" | "AVOID",
   "short_reason": "",
@@ -62,52 +72,23 @@ Return ONLY JSON in EXACT format:
   "ui_theme": "green" | "yellow" | "red",
   "highlighted_ingredients": [],
   "uncertainty_note": ""
-}`
-            },
-            ...(image_url
-              ? [
-                  {
-                    type: "image_url",
-                    image_url: image_url
-                  }
-                ]
-              : []),
-            ...(ingredients
-              ? [
-                  {
-                    type: "text",
-                    text: `Ingredients: ${ingredients}`
-                  }
-                ]
-              : [])
-          ]
-        }
-      ],
-      max_tokens: 500
-    };
+}
+`;
 
-    const response = await axios.post(
-      "https://api.deepseek.com/chat/completions",
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    const parts = [{ text: prompt }];
+    if (imagePart) parts.push(imagePart);
 
-    const raw = response.data.choices[0].message.content;
+    const result = await model.generateContent(parts);
+    const text = result.response.text();
 
     let json;
     try {
-      json = JSON.parse(raw);
-    } catch (e) {
-      // fallback if JSON slightly malformed
+      json = JSON.parse(text);
+    } catch {
       return res.json({
         verdict: "CAUTION",
-        short_reason: "AI returned non-strict JSON",
-        detailed_reason: raw,
+        short_reason: "Could not strictly parse JSON",
+        detailed_reason: text,
         ui_theme: "yellow",
         highlighted_ingredients: [],
         uncertainty_note: "Parser fallback"
@@ -115,56 +96,46 @@ Return ONLY JSON in EXACT format:
     }
 
     res.json(json);
+
   } catch (error) {
-    console.error("AI Error:", error?.response?.data || error.message);
+    console.error("Gemini Error:", error?.response?.data || error.message);
     res.status(500).json({ error: "AI reasoning failed" });
   }
 });
 
 
-
-// ---------------- FOLLOW UP CHAT ROUTE ----------------
+// ---------------- FOLLOW UP CHAT ----------------
 router.post("/chat", async (req, res) => {
   try {
     const { message, context, userProfile, history } = req.body;
 
-    const payload = {
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "system",
-          content: `You are an AI Nutrition Co-pilot.
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-CONTEXT OF PRODUCT:
+    const result = await model.generateContent([
+      {
+        text: `
+You are an AI Nutrition Co-pilot.
+
+PRODUCT:
 ${context}
 
-USER PROFILE:
+USER:
 ${userProfile}
 
 Rules:
-- Friendly + simple
-- Max 3 sentences unless asked for detail
-- Suggest healthier swaps when helpful`
-        },
-        ...history,
-        { role: "user", content: message }
-      ]
-    };
+- Helpful but brief
+- Max 3 sentences unless asked
+- Suggest swaps when useful
 
-    const response = await axios.post(
-      "https://api.deepseek.com/chat/completions",
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-          "Content-Type": "application/json"
-        }
+User: ${message}
+`
       }
-    );
+    ]);
 
-    res.json({ reply: response.data.choices[0].message.content });
+    res.json({ reply: result.response.text() });
+
   } catch (error) {
-    console.error("Chat error:", error?.response?.data || error.message);
+    console.error("Chat Error:", error?.response?.data || error.message);
     res.status(500).json({ error: "Chat failed" });
   }
 });
