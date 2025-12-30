@@ -51,7 +51,7 @@ router.post("/", async (req, res) => {
     }
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       safetySettings: [] // avoids random blocking
     });
 
@@ -109,7 +109,7 @@ router.post("/chat", async (req, res) => {
   try {
     const { message, context, userProfile, history } = req.body;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     const result = await model.generateContent([
       {
