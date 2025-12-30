@@ -1,13 +1,10 @@
 const express = require("express");
 const User = require("../models/User");
 const router = express.Router();
-const OpenAI = require("openai");
+const axios = require("axios");
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
-// --- NEW: Route to fetch saved context ---
+// ---------------- CONTEXT ROUTE ----------------
 router.get("/context", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.email });
@@ -18,111 +15,156 @@ router.get("/context", async (req, res) => {
   }
 });
 
-// --- Existing POST route ---
+
+// ---------------- MAIN ANALYSIS ROUTE ----------------
 router.post("/", async (req, res) => {
   try {
     const { ingredients, image_url, userProfile } = req.body;
 
     if (!ingredients && !image_url) {
-      return res.status(400).json({ msg: "Ingredients or an image is required" });
+      return res.status(400).json({
+        msg: "Provide either ingredients text or image"
+      });
     }
 
     let user = await User.findOne({ email: req.email });
-    if (!user) {
+    if (!user)
       user = await User.create({ email: req.email, persona: userProfile || "" });
-    }
 
-    // Update the persona if the user sent a new one
     if (userProfile) {
       user.persona = userProfile;
       await user.save();
     }
 
-    const persona = user.persona || "a consumer looking for healthy choices";
+    const persona = user.persona || "a consumer who cares about healthy eating";
 
-    // Build the multimodal message
-    const content = [
+    const payload = {
+      model: "deepseek-vl-1.5",
+      messages: [
+        {
+          role: "system",
+          content: "You are a nutrition AI. ALWAYS return ONLY raw JSON. No markdown."
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `User persona: ${persona}
+
+Analyze the food / product using the image and/or ingredient list.
+
+Return ONLY JSON in EXACT format:
+{
+  "verdict": "SAFE" | "CAUTION" | "AVOID",
+  "short_reason": "",
+  "detailed_reason": "",
+  "ui_theme": "green" | "yellow" | "red",
+  "highlighted_ingredients": [],
+  "uncertainty_note": ""
+}`
+            },
+            ...(image_url
+              ? [
+                  {
+                    type: "image_url",
+                    image_url: image_url
+                  }
+                ]
+              : []),
+            ...(ingredients
+              ? [
+                  {
+                    type: "text",
+                    text: `Ingredients: ${ingredients}`
+                  }
+                ]
+              : [])
+          ]
+        }
+      ],
+      max_tokens: 500
+    };
+
+    const response = await axios.post(
+      "https://api.deepseek.com/chat/completions",
+      payload,
       {
-        type: "text",
-        text: `You are an AI-Native Nutrition Co-pilot. 
-               User Health Context: ${persona}.
-               Analyze the following input and provide human-level insight.
-               
-               Return ONLY JSON in this exact format:
-               {
-                 "verdict": "SAFE" | "CAUTION" | "AVOID",
-                 "short_reason": "",
-                 "detailed_reason": "",
-                 "ui_theme": "green" | "yellow" | "red",
-                 "highlighted_ingredients": [],
-                 "uncertainty_note": "Mention if the image is blurry or ingredients are unclear"
-               }`
+        headers: {
+          Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+          "Content-Type": "application/json"
+        }
       }
-    ];
+    );
 
-    if (image_url) {
-      content.push({
-        type: "image_url",
-        image_url: { url: image_url } 
-      });
-    } else {
-      content.push({
-        type: "text",
-        text: `Ingredients list: ${ingredients}`
+    const raw = response.data.choices[0].message.content;
+
+    let json;
+    try {
+      json = JSON.parse(raw);
+    } catch (e) {
+      // fallback if JSON slightly malformed
+      return res.json({
+        verdict: "CAUTION",
+        short_reason: "AI returned non-strict JSON",
+        detailed_reason: raw,
+        ui_theme: "yellow",
+        highlighted_ingredients: [],
+        uncertainty_note: "Parser fallback"
       });
     }
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini", 
-      messages: [{ role: "user", content: content }],
-      response_format: { type: "json_object" }
-    });
-
-    res.json(JSON.parse(response.choices[0].message.content));
-
+    res.json(json);
   } catch (error) {
-    console.error(error);
+    console.error("AI Error:", error?.response?.data || error.message);
     res.status(500).json({ error: "AI reasoning failed" });
   }
 });
 
 
-// --- NEW: Follow-up Chat Route ---
+
+// ---------------- FOLLOW UP CHAT ROUTE ----------------
 router.post("/chat", async (req, res) => {
   try {
     const { message, context, userProfile, history } = req.body;
 
-    // 1. Build the conversation history
-    const messages = [
+    const payload = {
+      model: "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI Nutrition Co-pilot.
+
+CONTEXT OF PRODUCT:
+${context}
+
+USER PROFILE:
+${userProfile}
+
+Rules:
+- Friendly + simple
+- Max 3 sentences unless asked for detail
+- Suggest healthier swaps when helpful`
+        },
+        ...history,
+        { role: "user", content: message }
+      ]
+    };
+
+    const response = await axios.post(
+      "https://api.deepseek.com/chat/completions",
+      payload,
       {
-        role: "system",
-        content: `You are an AI Nutrition Co-pilot. 
-        
-        CONTEXT OF CURRENT PRODUCT:
-        "${context}"
-        
-        USER HEALTH PROFILE:
-        "${userProfile}"
-        
-        Your Goal: Answer the user's follow-up questions about this product. 
-        - Be brief and conversational.
-        - If they ask for alternatives, suggest specific healthy swaps.
-        - If they ask "Why?", explain the science simply.
-        - Keep answers under 3 sentences unless asked for more detail.`
-      },
-      ...history, // Previous chat messages
-      { role: "user", content: message }
-    ];
+        headers: {
+          Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: messages,
-    });
-
-    res.json({ reply: response.choices[0].message.content });
-
+    res.json({ reply: response.data.choices[0].message.content });
   } catch (error) {
-    console.error("Chat error:", error);
+    console.error("Chat error:", error?.response?.data || error.message);
     res.status(500).json({ error: "Chat failed" });
   }
 });
