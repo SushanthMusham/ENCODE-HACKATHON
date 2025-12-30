@@ -3,7 +3,9 @@ const User = require("../models/User");
 const router = express.Router();
 const axios = require("axios");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 
