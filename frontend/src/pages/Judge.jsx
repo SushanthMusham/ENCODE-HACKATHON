@@ -7,7 +7,7 @@ import {
 import api from "../api";
 import { useNavigate } from "react-router-dom";
 
-// Helper for rendering bold text
+// Helper for rendering bold text .
 const RenderText = ({ text }) => {
   if (!text) return null;
   const parts = text.split(/(\*\*.*?\*\*)/g);
