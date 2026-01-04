@@ -50,8 +50,9 @@ router.post("/", async (req, res) => {
       };
     }
 
+    // FIX 1: Correct Model Name
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-1.5-flash",
       safetySettings: [] // avoids random blocking
     });
 
@@ -81,10 +82,15 @@ Return ONLY valid JSON EXACTLY like:
     const result = await model.generateContent(parts);
     const text = result.response.text();
 
+    // FIX 2: Clean up Markdown formatting before parsing
+    // Gemini often wraps JSON in \`\`\`json ... \`\`\`, which breaks JSON.parse()
+    const cleanedText = text.replace(/```json|```/g, "").trim();
+
     let json;
     try {
-      json = JSON.parse(text);
+      json = JSON.parse(cleanedText);
     } catch {
+      console.error("JSON Parse Failed. Raw Text:", text); // Log the raw text for debugging
       return res.json({
         verdict: "CAUTION",
         short_reason: "Could not strictly parse JSON",
@@ -98,6 +104,7 @@ Return ONLY valid JSON EXACTLY like:
     res.json(json);
 
   } catch (error) {
+    // Improved Error Logging
     console.error("Gemini Error:", error?.response?.data || error.message);
     res.status(500).json({ error: "AI reasoning failed" });
   }
@@ -109,7 +116,8 @@ router.post("/chat", async (req, res) => {
   try {
     const { message, context, userProfile, history } = req.body;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    // FIX 1: Correct Model Name
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const result = await model.generateContent([
       {
