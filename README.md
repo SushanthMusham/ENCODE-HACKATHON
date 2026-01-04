@@ -1,6 +1,9 @@
 # 🧠 AI-Native Nutrition Co-Pilot
 **Make sense of food ingredients at the moment decisions matter.**
 
+🔗 Live Demo
+website : https://encode-hackathon-nine.vercel.app
+
 ---
 
 ## 🚀 Problem We’re Solving
@@ -105,5 +108,4 @@ npm install
 npm run dev
 
 
-🔗 Live Demo
-website : https://encode-hackathon-ivory.vercel.app
+
